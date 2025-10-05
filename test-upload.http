@@ -1,0 +1,126 @@
+### Test Upload Images API
+
+### Variables
+@baseUrl = http://localhost:8000/api
+@adminToken = YOUR_ADMIN_TOKEN_HERE
+
+### ============================================
+### 1. LOGIN TO GET TOKEN
+### ============================================
+
+### Login as Admin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+    "email": "admin@organic.com",
+    "password": "password"
+}
+
+### ============================================
+### 2. UPLOAD PRODUCT WITH IMAGES
+### ============================================
+
+### Create product with images (Form Data)
+POST {{baseUrl}}/products
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data
+
+{
+    "category_id": 1,
+    "name": "Cà rốt hữu cơ",
+    "price": 35000,
+    "description": "Cà rốt hữu cơ tươi ngon, giàu vitamin A",
+    "is_active": 1,
+    "images[]": "@/path/to/carrot1.jpg",
+    "images[]": "@/path/to/carrot2.jpg",
+    "primary_image_index": 0
+}
+
+### ============================================
+### 3. TEST WITH CURL (Alternative)
+### ============================================
+
+### cURL command for testing
+# curl -X POST http://localhost:8000/api/products \
+#   -H "Authorization: Bearer YOUR_TOKEN" \
+#   -F "category_id=1" \
+#   -F "name=Cà rốt hữu cơ" \
+#   -F "price=35000" \
+#   -F "description=Cà rốt hữu cơ tươi ngon" \
+#   -F "is_active=1" \
+#   -F "images[]=@/path/to/carrot1.jpg" \
+#   -F "images[]=@/path/to/carrot2.jpg" \
+#   -F "primary_image_index=0"
+
+### ============================================
+### 4. UPDATE PRODUCT WITH NEW IMAGES
+### ============================================
+
+### Update product with new images
+PUT {{baseUrl}}/products/1
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data
+
+{
+    "category_id": 1,
+    "name": "Cà rốt hữu cơ (Premium)",
+    "price": 40000,
+    "description": "Cà rốt hữu cơ premium, được trồng theo tiêu chuẩn quốc tế",
+    "is_active": 1,
+    "images[]": "@/path/to/carrot_premium1.jpg",
+    "images[]": "@/path/to/carrot_premium2.jpg",
+    "primary_image_index": 0
+}
+
+### ============================================
+### 5. GET PRODUCT TO SEE IMAGES
+### ============================================
+
+### Get product details
+GET {{baseUrl}}/products/1
+
+### ============================================
+### 6. ERROR TESTING
+### ============================================
+
+### Test with invalid file type
+POST {{baseUrl}}/products
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data
+
+{
+    "category_id": 1,
+    "name": "Test Product",
+    "price": 10000,
+    "images[]": "@/path/to/document.pdf"
+}
+
+### Test with file too large
+POST {{baseUrl}}/products
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data
+
+{
+    "category_id": 1,
+    "name": "Test Product",
+    "price": 10000,
+    "images[]": "@/path/to/large_image.jpg"
+}
+
+### Test with too many images
+POST {{baseUrl}}/products
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data
+
+{
+    "category_id": 1,
+    "name": "Test Product",
+    "price": 10000,
+    "images[]": "@/path/to/image1.jpg",
+    "images[]": "@/path/to/image2.jpg",
+    "images[]": "@/path/to/image3.jpg",
+    "images[]": "@/path/to/image4.jpg",
+    "images[]": "@/path/to/image5.jpg",
+    "images[]": "@/path/to/image6.jpg"
+}

@@ -1,0 +1,121 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+-- Người dùng
+CREATE TABLE users (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(191) NOT NULL UNIQUE,
+  phone VARCHAR(30) NULL,
+  address VARCHAR(255) NULL,                -- thay cho bảng addresses
+  password VARCHAR(255) NOT NULL,
+  is_admin TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NULL,
+  updated_at DATETIME NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Danh mục sản phẩm
+CREATE TABLE categories (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(160) NOT NULL,
+  slug VARCHAR(191) NOT NULL UNIQUE,
+  description TEXT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NULL,
+  updated_at DATETIME NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Sản phẩm
+CREATE TABLE products (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  category_id BIGINT UNSIGNED NULL,
+  name VARCHAR(191) NOT NULL,
+  slug VARCHAR(191) NOT NULL UNIQUE,
+  price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  description TEXT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NULL,
+  updated_at DATETIME NULL,
+  CONSTRAINT fk_products_category FOREIGN KEY (category_id)
+    REFERENCES categories(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Ảnh sản phẩm
+CREATE TABLE product_images (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  product_id BIGINT UNSIGNED NOT NULL,
+  image_url VARCHAR(255) NOT NULL,
+  is_primary TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NULL,
+  updated_at DATETIME NULL,
+  CONSTRAINT fk_product_images_product FOREIGN KEY (product_id)
+    REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Đơn hàng
+CREATE TABLE orders (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NULL,
+  status ENUM('pending','paid','shipped','delivered','cancelled') NOT NULL DEFAULT 'pending',
+  total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  -- Thông tin giao hàng
+  shipping_name VARCHAR(120) NOT NULL,
+  shipping_phone VARCHAR(30) NOT NULL,
+  shipping_address VARCHAR(255) NOT NULL,
+  notes TEXT NULL, -- Ghi chú đơn hàng
+  created_at DATETIME NULL,
+  updated_at DATETIME NULL,
+  CONSTRAINT fk_orders_user FOREIGN KEY (user_id)
+    REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Chi tiết đơn hàng
+CREATE TABLE order_items (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NULL,
+  qty INT NOT NULL,
+  unit_price DECIMAL(12,2) NOT NULL,
+  line_total DECIMAL(12,2) NOT NULL,
+  created_at DATETIME NULL,
+  updated_at DATETIME NULL,
+  CONSTRAINT fk_order_items_order FOREIGN KEY (order_id)
+    REFERENCES orders(id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_items_product FOREIGN KEY (product_id)
+    REFERENCES products(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Thanh toán
+CREATE TABLE payments (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT UNSIGNED NOT NULL,
+  method VARCHAR(80) NOT NULL,   -- ví dụ: COD, Momo, VNPAY
+  amount DECIMAL(12,2) NOT NULL,
+  status ENUM('pending','paid','failed') NOT NULL DEFAULT 'pending',
+  paid_at DATETIME NULL,
+  created_at DATETIME NULL,
+  updated_at DATETIME NULL,
+  CONSTRAINT fk_payments_order FOREIGN KEY (order_id)
+    REFERENCES orders(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Vận chuyển
+CREATE TABLE shipments (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT UNSIGNED NOT NULL,
+  provider VARCHAR(80) NULL, -- ví dụ GHN, GHTK (có thể NULL, admin sẽ chọn sau)
+  tracking_no VARCHAR(120) NULL,
+  status ENUM('pending','shipped','delivered') NOT NULL DEFAULT 'pending',
+  shipping_fee DECIMAL(12,2) NOT NULL DEFAULT 0.00, -- Phí vận chuyển
+  estimated_delivery DATE NULL, -- Ngày dự kiến giao hàng
+  shipped_at DATETIME NULL,
+  delivered_at DATETIME NULL,
+  created_at DATETIME NULL,
+  updated_at DATETIME NULL,
+  CONSTRAINT fk_shipments_order FOREIGN KEY (order_id)
+    REFERENCES orders(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
