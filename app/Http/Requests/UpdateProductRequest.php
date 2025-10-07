@@ -24,7 +24,15 @@ class UpdateProductRequest extends FormRequest
      */
     public function rules(): array
     {
-        $productId = $this->route('product');
+        $product = $this->route('product');
+        $productId = is_object($product) ? $product->id : $product;
+        
+        // Debug: Log the product ID
+        \Log::info('UpdateProductRequest rules', [
+            'product' => $product,
+            'product_id' => $productId,
+            'route_parameters' => $this->route()->parameters(),
+        ]);
         
         return [
             'category_id' => 'nullable|exists:categories,id',

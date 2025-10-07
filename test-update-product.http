@@ -1,7 +1,7 @@
 ### Test Update Product API
 ### Make sure to replace {product_id} with actual product ID and {token} with valid admin token
 
-PUT http://localhost:8000/api/products/1
+POST http://localhost:8000/api/products/1/update
 Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
 Authorization: Bearer {token}
 

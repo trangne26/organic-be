@@ -30,6 +30,18 @@ Route::get('categories/{category}', [CategoryController::class, 'show']);
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{product}', [ProductController::class, 'show']);
 
+// Test route for debugging
+Route::get('test-route', function() {
+    return response()->json(['message' => 'Test route works']);
+});
+Route::post('test-simple', function() {
+    return response()->json(['message' => 'POST works']);
+});
+Route::post('test-update/{product}', function($product) {
+    return response()->json(['message' => 'Product update test', 'product_id' => $product]);
+});
+Route::post('test-update-real/{product}', [ProductController::class, 'update']);
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     // Auth routes
@@ -53,7 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Product management
         Route::post('products', [ProductController::class, 'store']);
-        Route::put('products/{product}', [ProductController::class, 'update'])->middleware('multipart');
+        Route::post('products/{product}/update', [ProductController::class, 'update']);
         Route::delete('products/{product}', [ProductController::class, 'destroy']);
     });
 });

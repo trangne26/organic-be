@@ -24,7 +24,8 @@ class UpdateCategoryRequest extends FormRequest
      */
     public function rules(): array
     {
-        $categoryId = $this->route('category');
+        $category = $this->route('category');
+        $categoryId = is_object($category) ? $category->id : $category;
         
         return [
             'name' => 'required|string|max:160|unique:categories,name,' . $categoryId,
@@ -39,8 +40,13 @@ class UpdateCategoryRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         if ($this->has('name')) {
+            $category = $this->route('category');
+            $categoryId = is_object($category) ? $category->id : $category;
+            
+            $slug = \App\Models\Category::generateUniqueSlug($this->name, $categoryId);
+            
             $this->merge([
-                'slug' => Str::slug($this->name),
+                'slug' => $slug,
             ]);
         }
     }

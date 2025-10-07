@@ -26,25 +26,81 @@ class HandleMultipartFormData
             'has_files' => $request->hasFile('images'),
             'all_input' => $request->all(),
             'files' => $request->allFiles(),
+            'raw_content' => $request->getContent(),
         ]);
 
         // Handle PUT requests with multipart/form-data
         if ($request->isMethod('PUT') && str_contains($request->header('Content-Type', ''), 'multipart/form-data')) {
-            // Parse the raw input to get form data
-            $input = $request->all();
+            // For PUT requests, we need to manually parse the multipart data
+            $content = $request->getContent();
+            $boundary = $this->extractBoundary($request->header('Content-Type'));
             
-            // Log parsed input
-            Log::info('Parsed multipart form data', [
-                'input' => $input,
-                'has_name' => isset($input['name']),
-                'has_price' => isset($input['price']),
-                'has_category_id' => isset($input['category_id']),
-            ]);
-            
-            // Merge the parsed data back into the request
-            $request->merge($input);
+            if ($boundary) {
+                $parsedData = $this->parseMultipartData($content, $boundary);
+                
+                Log::info('Parsed multipart form data', [
+                    'parsed_data' => $parsedData,
+                    'has_name' => isset($parsedData['name']),
+                    'has_price' => isset($parsedData['price']),
+                    'has_category_id' => isset($parsedData['category_id']),
+                ]);
+                
+                // Merge the parsed data back into the request
+                $request->merge($parsedData);
+            }
         }
 
         return $next($request);
+    }
+
+    private function extractBoundary($contentType)
+    {
+        if (preg_match('/boundary=(.+)$/', $contentType, $matches)) {
+            return '--' . trim($matches[1]);
+        }
+        return null;
+    }
+
+    private function parseMultipartData($content, $boundary)
+    {
+        $data = [];
+        $parts = explode($boundary, $content);
+        
+        foreach ($parts as $part) {
+            if (strpos($part, 'Content-Disposition: form-data') !== false) {
+                // Extract field name
+                if (preg_match('/name="([^"]+)"/', $part, $matches)) {
+                    $fieldName = $matches[1];
+                    
+                    // Extract field value
+                    $lines = explode("\r\n", $part);
+                    $value = '';
+                    $inValue = false;
+                    
+                    foreach ($lines as $line) {
+                        if ($inValue) {
+                            $value .= $line . "\r\n";
+                        } elseif (trim($line) === '') {
+                            $inValue = true;
+                        }
+                    }
+                    
+                    $value = trim($value);
+                    
+                    // Handle array fields like images[]
+                    if (strpos($fieldName, '[]') !== false) {
+                        $fieldName = str_replace('[]', '', $fieldName);
+                        if (!isset($data[$fieldName])) {
+                            $data[$fieldName] = [];
+                        }
+                        $data[$fieldName][] = $value;
+                    } else {
+                        $data[$fieldName] = $value;
+                    }
+                }
+            }
+        }
+        
+        return $data;
     }
 }
