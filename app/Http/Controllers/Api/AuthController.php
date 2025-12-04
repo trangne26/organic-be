@@ -69,6 +69,7 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+            'remember_me' => 'nullable|boolean',
         ], [
             'email.required' => 'Email là bắt buộc.',
             'password.required' => 'Mật khẩu là bắt buộc.',
@@ -81,7 +82,12 @@ class AuthController extends Controller
         }
 
         $user = Auth::user();
-        $token = $user->createToken('auth-token')->plainTextToken;
+        
+        $expiresAt = $request->boolean('remember_me') 
+            ? now()->addDays(30) 
+            : now()->addDays(7);
+        
+        $token = $user->createToken('auth-token', ['*'], $expiresAt)->plainTextToken;
 
         return response()->json([
             'success' => true,
@@ -96,6 +102,7 @@ class AuthController extends Controller
                     'is_admin' => $user->is_admin,
                 ],
                 'token' => $token,
+                'expires_at' => $expiresAt->toIso8601String(),
             ],
         ]);
     }

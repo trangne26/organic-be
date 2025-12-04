@@ -67,7 +67,33 @@ POST /api/auth/login
 ```json
 {
     "email": "user@example.com",
-    "password": "password123"
+    "password": "password123",
+    "remember_me": true
+}
+```
+
+**Request Parameters:**
+- `email` (required|string|email): Email đăng nhập
+- `password` (required|string): Mật khẩu
+- `remember_me` (optional|boolean): Nếu `true`, token sẽ có thời gian hết hạn là 30 ngày. Nếu `false` hoặc không có, token sẽ hết hạn sau 7 ngày.
+
+**Response:**
+```json
+{
+    "success": true,
+    "message": "Đăng nhập thành công.",
+    "data": {
+        "user": {
+            "id": 1,
+            "name": "Nguyễn Văn A",
+            "email": "user@example.com",
+            "phone": "0123456789",
+            "address": "123 Đường ABC, Quận 1, TP.HCM",
+            "is_admin": false
+        },
+        "token": "1|abc123...",
+        "expires_at": "2024-11-01T00:00:00.000000Z"
+    }
 }
 ```
 
