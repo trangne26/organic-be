@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\ResetPasswordMail;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -201,6 +205,114 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Đổi mật khẩu thành công.',
+        ]);
+    }
+
+    /**
+     * Send password reset link to user email.
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ], [
+            'email.required' => 'Email là bắt buộc.',
+            'email.email' => 'Email không hợp lệ.',
+            'email.exists' => 'Email này chưa được đăng ký trong hệ thống.',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        // Generate reset token
+        $token = Str::random(64);
+
+        // Delete existing reset tokens for this email
+        DB::table('password_resets')->where('email', $request->email)->delete();
+
+        // Insert new reset token (expires in 60 minutes)
+        DB::table('password_resets')->insert([
+            'email' => $request->email,
+            'token' => Hash::make($token),
+            'created_at' => now(),
+        ]);
+
+        // Send reset password email
+        try {
+            Mail::to($user->email)->send(new ResetPasswordMail($token, $user->email));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Chúng tôi đã gửi link đặt lại mật khẩu đến email của bạn. Vui lòng kiểm tra hộp thư.',
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to send reset password email', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra khi gửi email. Vui lòng thử lại sau.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * Reset password with token.
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'token' => 'required|string',
+            'password' => 'required|string|min:6',
+        ], [
+            'token.required' => 'Token là bắt buộc.',
+            'password.required' => 'Mật khẩu mới là bắt buộc.',
+            'password.min' => 'Mật khẩu mới phải có ít nhất 6 ký tự.',
+        ]);
+
+        // Find password reset record within last hour
+        $passwordResets = DB::table('password_resets')
+            ->where('created_at', '>', now()->subHours(1))
+            ->get();
+
+        $passwordReset = null;
+        foreach ($passwordResets as $record) {
+            if (Hash::check($request->token, $record->token)) {
+                $passwordReset = $record;
+                break;
+            }
+        }
+
+        if (!$passwordReset) {
+            throw ValidationException::withMessages([
+                'token' => ['Token không hợp lệ hoặc đã hết hạn.'],
+            ]);
+        }
+
+        // Find user by email
+        $user = User::where('email', $passwordReset->email)->first();
+
+        if (!$user) {
+            throw ValidationException::withMessages([
+                'token' => ['Không tìm thấy người dùng.'],
+            ]);
+        }
+
+        // Update user password
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        // Delete password reset record
+        DB::table('password_resets')->where('email', $passwordReset->email)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.',
         ]);
     }
 }

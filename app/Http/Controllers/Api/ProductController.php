@@ -183,7 +183,8 @@ class ProductController extends Controller
             'has_images' => $request->hasFile('images'),
             'images_count' => $request->hasFile('images') ? count($request->file('images')) : 0,
             'primary_image_index' => $request->primary_image_index,
-            'validated_data' => $request->validated()
+            'validated_data' => $request->validated(),
+            'removed_image_ids' => $request->input('removed_image_ids'),
         ]);
 
         DB::beginTransaction();
@@ -193,22 +194,38 @@ class ProductController extends Controller
             $product->update($request->validated());
             Log::info('Product updated successfully', ['product_id' => $product->id]);
 
-            // Handle product images update
-            if ($request->hasFile('images')) {
-                Log::info('Updating images', ['count' => count($request->file('images'))]);
-                
-                // Delete existing images from storage
-                foreach ($product->images as $image) {
+            // Handle remove old images by IDs (optional)
+            $removedImageIds = $request->input('removed_image_ids', []);
+            if (is_array($removedImageIds) && count($removedImageIds) > 0) {
+                Log::info('Removing selected images', ['removed_image_ids' => $removedImageIds]);
+
+                $imagesToRemove = $product->images()
+                    ->whereIn('id', $removedImageIds)
+                    ->get();
+
+                foreach ($imagesToRemove as $image) {
                     $path = str_replace('/storage/', '', $image->image_url);
                     Storage::disk('public')->delete($path);
-                    Log::info('Deleted old image', ['path' => $path]);
+                    Log::info('Deleted selected old image', ['path' => $path, 'image_id' => $image->id]);
                 }
-                
-                // Delete existing image records
-                $product->images()->delete();
-                Log::info('Deleted old image records');
 
-                // Upload new images
+                $product->images()->whereIn('id', $removedImageIds)->delete();
+                Log::info('Deleted selected old image records', ['removed_image_ids' => $removedImageIds]);
+            }
+
+            $primaryIndex = $request->filled('primary_image_index')
+                ? (int) $request->input('primary_image_index')
+                : null;
+
+            // Handle product images update
+            if ($request->hasFile('images')) {
+                Log::info('Uploading additional images', ['count' => count($request->file('images'))]);
+
+                // Lấy lại danh sách ảnh hiện có (sau khi đã xóa removed_image_ids)
+                $existingImages = $product->images()->orderBy('id')->get();
+                $existingCount = $existingImages->count();
+
+                // Upload new images (keep existing ones unless they are in removed_image_ids)
                 foreach ($request->file('images') as $index => $image) {
                     Log::debug('Processing image', [
                         'index' => $index,
@@ -226,10 +243,11 @@ class ProductController extends Controller
                     Log::info('Image stored', ['path' => $path]);
                     
                     // Create product image record
+                    $globalIndex = $existingCount + $index;
                     $imageData = [
                         'product_id' => $product->id,
                         'image_url' => Storage::url($path),
-                        'is_primary' => $index === $request->primary_image_index,
+                        'is_primary' => $primaryIndex !== null && $globalIndex === $primaryIndex,
                     ];
                     Log::info('Creating product image record', $imageData);
                     
@@ -238,6 +256,24 @@ class ProductController extends Controller
                 }
             } else {
                 Log::info('No images to update');
+            }
+
+            // Finalize primary image flag after all mutations (works with or without new images)
+            if ($primaryIndex !== null) {
+                $orderedImages = $product->images()->orderBy('id')->get();
+
+                foreach ($orderedImages as $index => $image) {
+                    $shouldBePrimary = $index === $primaryIndex;
+
+                    if ((bool)$image->is_primary !== $shouldBePrimary) {
+                        $image->update(['is_primary' => $shouldBePrimary]);
+                        Log::debug('Adjusted primary flag after sync', [
+                            'image_id' => $image->id,
+                            'index' => $index,
+                            'is_primary' => $shouldBePrimary,
+                        ]);
+                    }
+                }
             }
 
             DB::commit();
