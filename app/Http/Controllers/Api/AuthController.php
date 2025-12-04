@@ -24,13 +24,13 @@ class AuthController extends Controller
             'email' => 'required|string|email|max:191|unique:users',
             'phone' => 'nullable|string|max:30',
             'address' => 'nullable|string|max:255',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:6|confirmed',
         ], [
             'name.required' => 'Tên là bắt buộc.',
             'email.required' => 'Email là bắt buộc.',
             'email.unique' => 'Email đã được sử dụng.',
             'password.required' => 'Mật khẩu là bắt buộc.',
-            'password.min' => 'Mật khẩu phải có ít nhất 8 ký tự.',
+            'password.min' => 'Mật khẩu phải có ít nhất 6 ký tự.',
             'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
         ]);
 
@@ -173,11 +173,11 @@ class AuthController extends Controller
 
         $request->validate([
             'current_password' => 'required',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:6|confirmed',
         ], [
             'current_password.required' => 'Mật khẩu hiện tại là bắt buộc.',
             'password.required' => 'Mật khẩu mới là bắt buộc.',
-            'password.min' => 'Mật khẩu mới phải có ít nhất 8 ký tự.',
+            'password.min' => 'Mật khẩu mới phải có ít nhất 6 ký tự.',
             'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
         ]);
 
