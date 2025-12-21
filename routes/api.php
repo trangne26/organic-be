@@ -39,6 +39,16 @@ Route::get('test-route', function() {
 Route::post('test-simple', function() {
     return response()->json(['message' => 'POST works']);
 });
+// Test FAQ service
+Route::get('test-faq', function() {
+    $faqService = new \App\Services\FaqService();
+    $faqs = $faqService->loadFaqs();
+    return response()->json([
+        'success' => true,
+        'total' => count($faqs),
+        'faqs' => $faqs
+    ]);
+});
 Route::post('test-update/{product}', function($product) {
     return response()->json(['message' => 'Product update test', 'product_id' => $product]);
 });
