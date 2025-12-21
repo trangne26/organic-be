@@ -35,9 +35,26 @@ class ProductController extends Controller
             $query->where('category_id', $request->category_id);
         }
 
-        // Search by name
+        // Search by name and description
         if ($request->has('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%');
+            $searchTerm = $request->search;
+            
+            // Support multiple keywords (array or space-separated string)
+            $searchTerms = is_array($searchTerm) 
+                ? $searchTerm 
+                : explode(' ', $searchTerm);
+            
+            $query->where(function($q) use ($searchTerms) {
+                foreach ($searchTerms as $term) {
+                    $trimmedTerm = trim($term);
+                    if (!empty($trimmedTerm)) {
+                        $q->where(function($subQ) use ($trimmedTerm) {
+                            $subQ->where('name', 'like', '%' . $trimmedTerm . '%')
+                                 ->orWhere('description', 'like', '%' . $trimmedTerm . '%');
+                        });
+                    }
+                }
+            });
         }
 
         // Price range filter

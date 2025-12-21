@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProductController;
 use Illuminate\Http\Request;
@@ -32,6 +33,9 @@ Route::get('categories/{category}', [CategoryController::class, 'show']);
 Route::get('products', [ProductController::class, 'index']);
 Route::get('products/{product}', [ProductController::class, 'show']);
 
+// Chatbot route
+Route::post('chat', [ChatController::class, 'chat']);
+
 // Test route for debugging
 Route::get('test-route', function() {
     return response()->json(['message' => 'Test route works']);
@@ -47,6 +51,15 @@ Route::get('test-faq', function() {
         'success' => true,
         'total' => count($faqs),
         'faqs' => $faqs
+    ]);
+});
+// Test product search with description
+Route::get('test-product-search', function(Request $request) {
+    $searchTerm = $request->get('search', '');
+    return response()->json([
+        'message' => 'Test product search',
+        'search_term' => $searchTerm,
+        'note' => 'Use GET /api/products?search=' . urlencode($searchTerm) . ' to test'
     ]);
 });
 Route::post('test-update/{product}', function($product) {
