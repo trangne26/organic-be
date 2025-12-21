@@ -18,28 +18,21 @@ use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request): JsonResponse
     {
         $query = Product::query();
 
-        // Filter by active status
         if ($request->has('active')) {
             $query->where('is_active', $request->boolean('active'));
         }
 
-        // Filter by category
         if ($request->has('category_id')) {
             $query->where('category_id', $request->category_id);
         }
 
-        // Search by name and description
         if ($request->has('search')) {
             $searchTerm = $request->search;
             
-            // Support multiple keywords (array or space-separated string)
             $searchTerms = is_array($searchTerm) 
                 ? $searchTerm 
                 : explode(' ', $searchTerm);
@@ -57,7 +50,6 @@ class ProductController extends Controller
             });
         }
 
-        // Price range filter
         if ($request->has('min_price')) {
             $query->where('price', '>=', $request->min_price);
         }
@@ -65,16 +57,14 @@ class ProductController extends Controller
             $query->where('price', '<=', $request->max_price);
         }
 
-        // Sort by price
         if ($request->has('sort_price')) {
             $query->orderBy('price', $request->sort_price);
         } else {
             $query->latest();
         }
 
-        // Pagination with custom per_page
         $perPage = $request->get('per_page', 15);
-        $perPage = max(1, min(100, (int)$perPage)); // Limit between 1-100
+        $perPage = max(1, min(100, (int)$perPage));
 
         $products = $query->with(['category', 'images'])
             ->withCount('orderItems')
@@ -92,9 +82,6 @@ class ProductController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(StoreProductRequest $request): JsonResponse
     {
         Log::info('Creating product', [
@@ -112,7 +99,6 @@ class ProductController extends Controller
             $product = Product::create($request->validated());
             Log::info('Product created successfully', ['product_id' => $product->id]);
 
-            // Handle product images upload
             if ($request->hasFile('images')) {
                 Log::info('Processing images', ['count' => count($request->file('images'))]);
                 
@@ -124,15 +110,12 @@ class ProductController extends Controller
                         'mime_type' => $image->getMimeType()
                     ]);
                     
-                    // Generate unique filename
                     $filename = time() . '_' . $index . '.' . $image->getClientOriginalExtension();
                     Log::info('Generated filename', ['filename' => $filename]);
                     
-                    // Store image in storage/app/public/products
                     $path = $image->storeAs('products', $filename, 'public');
                     Log::info('Image stored', ['path' => $path]);
                     
-                    // Create product image record
                     $imageData = [
                         'product_id' => $product->id,
                         'image_url' => Storage::url($path),
@@ -173,9 +156,6 @@ class ProductController extends Controller
         }
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Product $product): JsonResponse
     {
         $product->load(['category', 'images', 'orderItems']);
@@ -186,12 +166,8 @@ class ProductController extends Controller
         ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(UpdateProductRequest $request, Product $product): JsonResponse
     {
-        // Debug validation data
         $this->debugValidationErrors($request);
         
         Log::info('Updating product', [
@@ -211,7 +187,6 @@ class ProductController extends Controller
             $product->update($request->validated());
             Log::info('Product updated successfully', ['product_id' => $product->id]);
 
-            // Handle remove old images by IDs (optional)
             $removedImageIds = $request->input('removed_image_ids', []);
             if (is_array($removedImageIds) && count($removedImageIds) > 0) {
                 Log::info('Removing selected images', ['removed_image_ids' => $removedImageIds]);
@@ -234,15 +209,12 @@ class ProductController extends Controller
                 ? (int) $request->input('primary_image_index')
                 : null;
 
-            // Handle product images update
             if ($request->hasFile('images')) {
                 Log::info('Uploading additional images', ['count' => count($request->file('images'))]);
 
-                // Lấy lại danh sách ảnh hiện có (sau khi đã xóa removed_image_ids)
                 $existingImages = $product->images()->orderBy('id')->get();
                 $existingCount = $existingImages->count();
 
-                // Upload new images (keep existing ones unless they are in removed_image_ids)
                 foreach ($request->file('images') as $index => $image) {
                     Log::debug('Processing image', [
                         'index' => $index,
@@ -251,15 +223,12 @@ class ProductController extends Controller
                         'mime_type' => $image->getMimeType()
                     ]);
                     
-                    // Generate unique filename
                     $filename = time() . '_' . $index . '.' . $image->getClientOriginalExtension();
                     Log::info('Generated filename', ['filename' => $filename]);
                     
-                    // Store image in storage/app/public/products
                     $path = $image->storeAs('products', $filename, 'public');
                     Log::info('Image stored', ['path' => $path]);
                     
-                    // Create product image record
                     $globalIndex = $existingCount + $index;
                     $imageData = [
                         'product_id' => $product->id,
@@ -275,7 +244,6 @@ class ProductController extends Controller
                 Log::info('No images to update');
             }
 
-            // Finalize primary image flag after all mutations (works with or without new images)
             if ($primaryIndex !== null) {
                 $orderedImages = $product->images()->orderBy('id')->get();
 
@@ -319,14 +287,10 @@ class ProductController extends Controller
         }
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Product $product): JsonResponse
     {
         Log::info('Deleting product', ['product_id' => $product->id]);
 
-        // Check if product has orders
         if ($product->orderItems()->count() > 0) {
             Log::warning('Cannot delete product with orders', [
                 'product_id' => $product->id,
@@ -339,7 +303,6 @@ class ProductController extends Controller
             ], 422);
         }
 
-        // Delete product images from storage
         foreach ($product->images as $image) {
             $path = str_replace('/storage/', '', $image->image_url);
             Storage::disk('public')->delete($path);
@@ -355,9 +318,6 @@ class ProductController extends Controller
         ]);
     }
 
-    /**
-     * Debug validation errors helper method
-     */
     private function debugValidationErrors($request): void
     {
         Log::info('Validation Debug', [

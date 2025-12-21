@@ -19,26 +19,20 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request): JsonResponse
     {
         $query = Order::query();
 
-        // Filter by user (for non-admin users)
         if (!Auth::user()?->isAdmin()) {
             $query->where('user_id', Auth::id());
         } elseif ($request->has('user_id')) {
             $query->where('user_id', $request->user_id);
         }
 
-        // Filter by status
         if ($request->has('status')) {
             $query->where('status', $request->status);
         }
 
-        // Date range filter
         if ($request->has('from_date')) {
             $query->whereDate('created_at', '>=', $request->from_date);
         }
@@ -46,9 +40,8 @@ class OrderController extends Controller
             $query->whereDate('created_at', '<=', $request->to_date);
         }
 
-        // Pagination with custom per_page
         $perPage = $request->get('per_page', 15);
-        $perPage = max(1, min(100, (int)$perPage)); // Limit between 1-100
+        $perPage = max(1, min(100, (int)$perPage));
 
         $orders = $query->with(['user', 'orderItems.product', 'payments', 'shipments'])
             ->latest()
@@ -66,12 +59,8 @@ class OrderController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(StoreOrderRequest $request): JsonResponse
     {
-        // Debug: Log all request data
         \Log::info('StoreOrderRequest received', [
             'all_data' => $request->all(),
             'shipping_name' => $request->shipping_name,
@@ -83,7 +72,6 @@ class OrderController extends Controller
         DB::beginTransaction();
 
         try {
-            // Calculate total
             $total = 0;
             $orderItems = [];
 
@@ -100,7 +88,6 @@ class OrderController extends Controller
                 ];
             }
 
-            // Debug: Log request data
             \Log::info('Order creation request data', [
                 'shipping_name' => $request->shipping_name,
                 'shipping_phone' => $request->shipping_phone,
@@ -109,7 +96,6 @@ class OrderController extends Controller
                 'all_data' => $request->all()
             ]);
             
-            // Create order
             $order = Order::create([
                 'user_id' => Auth::id(),
                 'status' => 'pending',
@@ -120,7 +106,6 @@ class OrderController extends Controller
                 'notes' => $request->notes,
             ]);
 
-            // Create order items
             foreach ($orderItems as $item) {
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -131,7 +116,6 @@ class OrderController extends Controller
                 ]);
             }
 
-            // Create payment record
             Payment::create([
                 'order_id' => $order->id,
                 'method' => $request->payment_method,
@@ -139,12 +123,11 @@ class OrderController extends Controller
                 'status' => 'pending',
             ]);
 
-            // Create shipment record
             Shipment::create([
                 'order_id' => $order->id,
-                'provider' => $request->shipping_provider, // Có thể null, admin sẽ chọn sau
+                'provider' => $request->shipping_provider,
                 'status' => 'pending',
-                'shipping_fee' => 0.00, // Sẽ được tính sau khi chọn provider
+                'shipping_fee' => 0.00,
             ]);
 
             DB::commit();
@@ -159,7 +142,6 @@ class OrderController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             
-            // Log lỗi chi tiết
             \Log::error('Order creation failed', [
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
@@ -177,12 +159,8 @@ class OrderController extends Controller
         }
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Order $order): JsonResponse
     {
-        // Check authorization
         if (!Auth::user()?->isAdmin() && $order->user_id !== Auth::id()) {
             return response()->json([
                 'success' => false,
@@ -198,9 +176,6 @@ class OrderController extends Controller
         ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, Order $order): JsonResponse
     {
         $request->validate([
@@ -209,7 +184,6 @@ class OrderController extends Controller
 
         $order->update(['status' => $request->status]);
 
-        // Update related records based on status
         if ($request->status === 'paid') {
             $order->payments()->update(['status' => 'paid', 'paid_at' => now()]);
         } elseif ($request->status === 'shipped') {
@@ -227,12 +201,8 @@ class OrderController extends Controller
         ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Order $order): JsonResponse
     {
-        // Only allow deletion of pending orders
         if ($order->status !== 'pending') {
             return response()->json([
                 'success' => false,

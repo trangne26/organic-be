@@ -8,19 +8,11 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreOrderRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, mixed>
-     */
     public function rules(): array
     {
         return [
@@ -28,21 +20,14 @@ class StoreOrderRequest extends FormRequest
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.qty' => 'required|integer|min:1',
             'payment_method' => 'required|string|in:COD,Momo,VNPAY',
-            // Thông tin giao hàng
             'shipping_name' => 'required|string|max:120',
             'shipping_phone' => 'required|string|max:30',
             'shipping_address' => 'required|string|max:255',
             'notes' => 'nullable|string',
-            // Shipping provider không bắt buộc, admin sẽ chọn sau
             'shipping_provider' => 'nullable|string|in:GHN,GHTK',
         ];
     }
 
-    /**
-     * Get custom messages for validator errors.
-     *
-     * @return array<string, string>
-     */
     public function messages(): array
     {
         return [
@@ -55,7 +40,6 @@ class StoreOrderRequest extends FormRequest
             'items.*.qty.min' => 'Số lượng phải lớn hơn 0.',
             'payment_method.required' => 'Phương thức thanh toán là bắt buộc.',
             'payment_method.in' => 'Phương thức thanh toán không hợp lệ.',
-            // Thông tin giao hàng
             'shipping_name.required' => 'Tên người nhận là bắt buộc.',
             'shipping_name.max' => 'Tên người nhận không được quá 120 ký tự.',
             'shipping_phone.required' => 'Số điện thoại người nhận là bắt buộc.',
@@ -63,7 +47,6 @@ class StoreOrderRequest extends FormRequest
             'shipping_address.required' => 'Địa chỉ giao hàng là bắt buộc.',
             'shipping_address.max' => 'Địa chỉ giao hàng không được quá 255 ký tự.',
             'notes.string' => 'Ghi chú phải là chuỗi ký tự.',
-            // Shipping provider
             'shipping_provider.in' => 'Nhà vận chuyển không hợp lệ.',
         ];
     }

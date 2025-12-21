@@ -23,12 +23,6 @@ class ChatController extends Controller
         $this->aiService = $aiService;
     }
 
-    /**
-     * Main chat endpoint
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
     public function chat(Request $request): JsonResponse
     {
         $request->validate([
@@ -46,32 +40,25 @@ class ChatController extends Controller
         }
 
         try {
-            // Step 1: Detect intent (with fallback)
             $intentData = $this->detectIntent($message);
 
-            // Validate intent data
             if (!isset($intentData['intent']) || !in_array($intentData['intent'], ['faq', 'product_search'])) {
-                // Invalid intent, default to product search
                 $intentData = [
                     'intent' => 'product_search',
                     'keywords' => [$message],
                 ];
             }
 
-            // Step 2: Handle based on intent
             if ($intentData['intent'] === 'faq') {
                 return $this->handleFaq($message, $intentData);
             } else {
                 return $this->handleProductSearch($message, $intentData);
             }
         } catch (\Exception $e) {
-            // Log error for debugging
             \Log::error('Chat error', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-
-            // Final fallback: Try to handle as product search
             try {
                 return $this->handleProductSearch($message, [
                     'intent' => 'product_search',
@@ -87,18 +74,10 @@ class ChatController extends Controller
         }
     }
 
-    /**
-     * Detect intent from user message
-     *
-     * @param string $message
-     * @return array
-     */
     private function detectIntent(string $message): array
     {
-        // Try AI service first
         $intentData = $this->aiService->detectIntent($message);
         
-        // Fallback to keyword matching if AI fails
         if ($intentData === null) {
             return $this->guessIntentFromKeywords($message);
         }
@@ -106,24 +85,15 @@ class ChatController extends Controller
         return $intentData;
     }
 
-    /**
-     * Handle FAQ intent
-     *
-     * @param string $message
-     * @param array $intentData
-     * @return JsonResponse
-     */
     private function handleFaq(string $message, array $intentData): JsonResponse
     {
         $faqKey = $intentData['faq_key'] ?? null;
         $faq = null;
 
-        // Try to find FAQ by key
         if ($faqKey) {
             $faq = $this->faqService->findFaqByKey($faqKey);
         }
 
-        // Fallback: Find FAQ by keywords
         if (!$faq) {
             $faq = $this->faqService->findFaqByKeywords($message);
         }
@@ -143,26 +113,16 @@ class ChatController extends Controller
             ]);
         }
 
-        // No FAQ found, fallback to product search
         return $this->handleProductSearch($message, [
             'intent' => 'product_search',
             'keywords' => [$message],
         ]);
     }
 
-    /**
-     * Handle product search intent
-     *
-     * @param string $message
-     * @param array $intentData
-     * @return JsonResponse
-     */
     private function handleProductSearch(string $message, array $intentData): JsonResponse
     {
-        // Extract keywords - fallback to message if empty
         $keywords = $intentData['keywords'] ?? [];
         if (empty($keywords)) {
-            // Fallback: Extract keywords from message
             $keywords = array_filter(explode(' ', $message), function($word) {
                 return mb_strlen(trim($word)) > 1;
             });
@@ -173,10 +133,8 @@ class ChatController extends Controller
         $minPrice = $intentData['price_min'] ?? null;
         $maxPrice = $intentData['price_max'] ?? null;
 
-        // Build query
         $query = Product::query()->where('is_active', true);
 
-        // Search by keywords
         if (!empty($keywords)) {
             $query->where(function($q) use ($keywords) {
                 foreach ($keywords as $keyword) {
@@ -191,12 +149,10 @@ class ChatController extends Controller
             });
         }
 
-        // Filter by category
         if ($categoryId) {
             $query->where('category_id', $categoryId);
         }
 
-        // Filter by price
         if ($minPrice !== null) {
             $query->where('price', '>=', $minPrice);
         }
@@ -204,12 +160,10 @@ class ChatController extends Controller
             $query->where('price', '<=', $maxPrice);
         }
 
-        // Get products (limit to 10 for chatbot)
         $products = $query->with(['category', 'images'])
             ->limit(10)
             ->get();
 
-        // Prepare products data for AI
         $productsData = $products->map(function ($product) {
             return [
                 'id' => $product->id,
@@ -230,42 +184,20 @@ class ChatController extends Controller
         ]);
     }
 
-    /**
-     * Generate FAQ response using AI (with fallback)
-     *
-     * @param string $message
-     * @param array $faq
-     * @return string
-     */
     private function generateFaqResponse(string $message, array $faq): string
     {
         return $this->aiService->generateFaqResponse($message, $faq);
     }
 
-    /**
-     * Generate product search response using AI (with fallback)
-     *
-     * @param string $message
-     * @param array $productsData
-     * @param array $keywords
-     * @return string
-     */
     private function generateProductSearchResponse(string $message, array $productsData, array $keywords): string
     {
         return $this->aiService->generateProductSearchResponse($message, $productsData, $keywords);
     }
 
-    /**
-     * Fallback: Guess intent from keywords
-     *
-     * @param string $message
-     * @return array
-     */
     private function guessIntentFromKeywords(string $message): array
     {
         $messageLower = mb_strtolower($message, 'UTF-8');
 
-        // FAQ keywords
         $faqKeywords = [
             'giao hàng', 'thời gian', 'bao lâu', 'shipping', 'delivery',
             'thanh toán', 'payment', 'cod', 'chuyển khoản',
@@ -277,10 +209,8 @@ class ChatController extends Controller
             'liên hệ', 'contact', 'hotline', 'email', 'địa chỉ',
         ];
 
-        // Check if message contains FAQ keywords
         foreach ($faqKeywords as $keyword) {
             if (mb_strpos($messageLower, mb_strtolower($keyword, 'UTF-8')) !== false) {
-                // Try to find matching FAQ
                 $faq = $this->faqService->findFaqByKeywords($message);
                 if ($faq) {
                     return [
@@ -291,7 +221,6 @@ class ChatController extends Controller
             }
         }
 
-        // Default to product search
         $keywords = array_filter(explode(' ', $message), function($word) {
             return mb_strlen(trim($word)) > 1;
         });

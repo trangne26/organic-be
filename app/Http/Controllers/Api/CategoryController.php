@@ -14,26 +14,20 @@ use Illuminate\Http\Request;
 
 class CategoryController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request): JsonResponse
     {
         $query = Category::query();
 
-        // Filter by active status
         if ($request->has('active')) {
             $query->where('is_active', $request->boolean('active'));
         }
 
-        // Search by name
         if ($request->has('search')) {
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        // Pagination with custom per_page
         $perPage = $request->get('per_page', 15);
-        $perPage = max(1, min(100, (int)$perPage)); // Limit between 1-100
+        $perPage = max(1, min(100, (int)$perPage));
 
         $categories = $query->withCount('products')->paginate($perPage);
 
@@ -49,9 +43,6 @@ class CategoryController extends Controller
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(StoreCategoryRequest $request): JsonResponse
     {
         $category = Category::create($request->validated());
@@ -63,9 +54,6 @@ class CategoryController extends Controller
         ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Category $category): JsonResponse
     {
         $category->load('products');
@@ -76,9 +64,6 @@ class CategoryController extends Controller
         ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(UpdateCategoryRequest $request, Category $category): JsonResponse
     {
         $category->update($request->validated());
@@ -90,12 +75,8 @@ class CategoryController extends Controller
         ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Category $category): JsonResponse
     {
-        // Check if category has products
         if ($category->products()->count() > 0) {
             return response()->json([
                 'success' => false,

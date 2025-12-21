@@ -18,9 +18,6 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    /**
-     * Register a new user.
-     */
     public function register(Request $request): JsonResponse
     {
         $request->validate([
@@ -65,9 +62,6 @@ class AuthController extends Controller
         ], 201);
     }
 
-    /**
-     * Login user.
-     */
     public function login(Request $request): JsonResponse
     {
         $request->validate([
@@ -111,9 +105,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Logout user.
-     */
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
@@ -124,9 +115,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Get authenticated user.
-     */
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -144,9 +132,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Update user profile.
-     */
     public function updateProfile(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -175,9 +160,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Change password.
-     */
     public function changePassword(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -208,9 +190,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Send password reset link to user email.
-     */
     public function forgotPassword(Request $request): JsonResponse
     {
         $request->validate([
@@ -223,20 +202,16 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        // Generate reset token
         $token = Str::random(64);
 
-        // Delete existing reset tokens for this email
         DB::table('password_resets')->where('email', $request->email)->delete();
 
-        // Insert new reset token (expires in 60 minutes)
         DB::table('password_resets')->insert([
             'email' => $request->email,
             'token' => Hash::make($token),
             'created_at' => now(),
         ]);
 
-        // Send reset password email
         try {
             Mail::to($user->email)->send(new ResetPasswordMail($token, $user->email));
 
@@ -260,9 +235,6 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * Reset password with token.
-     */
     public function resetPassword(Request $request): JsonResponse
     {
         $request->validate([
@@ -274,7 +246,6 @@ class AuthController extends Controller
             'password.min' => 'Mật khẩu mới phải có ít nhất 6 ký tự.',
         ]);
 
-        // Find password reset record within last hour
         $passwordResets = DB::table('password_resets')
             ->where('created_at', '>', now()->subHours(1))
             ->get();
@@ -293,7 +264,6 @@ class AuthController extends Controller
             ]);
         }
 
-        // Find user by email
         $user = User::where('email', $passwordReset->email)->first();
 
         if (!$user) {
@@ -302,12 +272,10 @@ class AuthController extends Controller
             ]);
         }
 
-        // Update user password
         $user->update([
             'password' => Hash::make($request->password),
         ]);
 
-        // Delete password reset record
         DB::table('password_resets')->where('email', $passwordReset->email)->delete();
 
         return response()->json([
